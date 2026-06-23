@@ -24,6 +24,35 @@ Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
 Chart.defaults.font.family = "'Inter', sans-serif";
 
+// Global Crosshair Plugin
+Chart.register({
+    id: 'crosshair',
+    afterDraw: chart => {
+        if (chart.tooltip?._active?.length) {
+            let activePoint = chart.tooltip._active[0];
+            let ctx = chart.ctx;
+            let x = activePoint.element.x;
+            let y = activePoint.element.y;
+            let topY = chart.scales.y.top;
+            let bottomY = chart.scales.y.bottom;
+            let leftX = chart.scales.x.left;
+            let rightX = chart.scales.x.right;
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x, topY);
+            ctx.lineTo(x, bottomY);
+            ctx.moveTo(leftX, y);
+            ctx.lineTo(rightX, y);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)'; // Thin light blue
+            ctx.setLineDash([5, 5]); // Dashed lines
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+});
+
 // State for data
 let currentTimeFilter = 'YTD';
 let globalStockData = [];
