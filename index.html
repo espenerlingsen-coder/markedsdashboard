@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markedsdashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- AUTH VIEW -->
+    <div id="auth-view" class="auth-container" style="display: none;">
+        <div class="auth-box glass">
+            <h2>Logg inn</h2>
+            <p>Vennligst logg inn for å få tilgang til markedsdashboardet.</p>
+            <div id="auth-error" class="error-msg" style="display: none;"></div>
+            
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="auth-email">E-post</label>
+                    <input type="email" id="auth-email" class="form-control" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Passord</label>
+                    <input type="password" id="auth-password" class="form-control" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="nav-btn" style="width: 100%; margin-top: 1rem; background: var(--accent); color: white; border-color: var(--accent);">Logg inn</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- APP CONTAINER (Skjult før innlogging) -->
+    <div id="app-container" style="display: none;">
+        <header>
+            <div class="header-content">
+                <h1>Selskapsdashboard</h1>
+                <div class="selector-container">
+                    <button id="btn-company-info" class="nav-btn" style="display: none;" onclick="showCompanyInfoView()">Selskaps info..</button>
+                    <label for="companySelect">Selskap:</label>
+                    <select id="companySelect">
+                        <option value="YAR.OL">Laster selskaper...</option>
+                    </select>
+                    <button class="nav-btn" onclick="handleLogout()" style="margin-left: 1rem;">Logg ut</button>
+                </div>
+            </div>
+        </header>
+
+    <main id="main-content">
+        <!-- Varsel hvis Supabase mangler nøkler -->
+        <div id="setup-warning" class="glass warning-banner" style="display: none;">
+            ⚠️ <strong>Handling kreves:</strong> Du må åpne <code>app.js</code> filen og legge inn din egen Supabase URL og Anon-nøkkel for at dataene skal lastes inn!
+        </div>
+
+        <div id="dashboard-view">
+            <!-- Oversikt (KPIer) -->
+        <section class="kpi-grid">
+            <!-- 1. Logo -->
+            <div class="kpi-card glass logo-card">
+                <img id="company-logo" src="" alt="Company Logo" style="display: none;">
+            </div>
+            
+            <!-- 2. Siste Aksjekurs -->
+            <div class="kpi-card glass">
+                <h3>Siste Aksjekurs</h3>
+                <div class="kpi-value" id="latest-price">-</div>
+                <div class="kpi-label">NOK</div>
+            </div>
+            
+            <!-- 3. Endring 1D -->
+            <div class="kpi-card glass">
+                <h3>Endring (1D)</h3>
+                <div class="kpi-change" id="change-1d">-</div>
+            </div>
+            
+            <!-- 4. Endring 1W -->
+            <div class="kpi-card glass">
+                <h3>Endring (1W)</h3>
+                <div class="kpi-change" id="change-1w">-</div>
+            </div>
+
+            <!-- 5. Endring 1M -->
+            <div class="kpi-card glass">
+                <h3>Endring (1M)</h3>
+                <div class="kpi-change" id="change-1m">-</div>
+            </div>
+
+            <!-- 6. Endring 1Y -->
+            <div class="kpi-card glass">
+                <h3>Endring (1Y)</h3>
+                <div class="kpi-change" id="change-1y">-</div>
+            </div>
+        </section>
+
+        <!-- Tidsfilter for grafer -->
+        <section class="time-filters">
+            <button class="time-btn" data-period="1M">1M</button>
+            <button class="time-btn active" data-period="YTD">YTD</button>
+            <button class="time-btn" data-period="1Y">1Y</button>
+            <button class="time-btn" data-period="3Y">3Y</button>
+            <button class="time-btn" data-period="5Y">5Y</button>
+        </section>
+
+        <!-- Grafer -->
+        <section class="charts-grid" id="charts-grid">
+            <div class="chart-card glass" id="card-stock">
+                <h2>Aksjekurs Historikk</h2>
+                <div class="chart-unit">NOK</div>
+                <div class="chart-container">
+                    <canvas id="stockChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card glass" id="card-oil" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <h2>Oljepris (Brent Crude)</h2>
+                    <div class="commodity-icons">
+                        <img src="oil_icon.png" alt="Oil" class="commodity-icon" onclick="showCommodityView('BZ=F')" title="Olje Analyse">
+                    </div>
+                </div>
+                <div class="chart-unit">USD/fat</div>
+                <div class="chart-container">
+                    <canvas id="oilChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card glass" id="card-gas" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <h2>Gasspriser (TTF & Henry Hub)</h2>
+                    <div class="commodity-icons">
+                        <img src="ttf_icon.png" alt="TTF" class="commodity-icon" onclick="showCommodityView('TTF=F')" title="TTF Analyse">
+                        <img src="hh_icon.png" alt="Henry Hub" class="commodity-icon" onclick="showCommodityView('NG=F')" title="Henry Hub Analyse">
+                    </div>
+                </div>
+                <div class="chart-unit">USD/MmBTU</div>
+                <div class="chart-container">
+                    <canvas id="gasChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card glass" id="card-urea" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <h2>Ureapris</h2>
+                    <div class="commodity-icons">
+                        <img src="urea_icon.png" alt="Urea" class="commodity-icon" onclick="showCommodityView('UREA_ME')" title="Urea Analyse">
+                    </div>
+                </div>
+                <div class="chart-unit">USD/tonn</div>
+                <div class="chart-container">
+                    <canvas id="ureaChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Selskapsnyheter og Analyse -->
+        <section class="info-grid">
+            <div class="info-card glass">
+                <h2 id="analysis-heading">Selskapsoppdatering</h2>
+                <div id="ai-analysis-content" class="markdown-content">
+                    Laster analyse...
+                </div>
+            </div>
+            <div class="info-card glass">
+                <h2>Siste Nyheter</h2>
+                <div class="news-list" id="news-container">
+                    Laster nyheter...
+                </div>
+            </div>
+        </section>
+        </div> <!-- End dashboard-view -->
+
+        <!-- Råvare Dashboard View -->
+        <div id="commodity-view" style="display: none;">
+            <button class="time-btn" onclick="showDashboard()" style="margin-bottom: 2rem;">&larr; Tilbake til Selskap</button>
+            
+            <section class="kpi-grid">
+                <!-- Råvare Logo -->
+                <div class="kpi-card glass logo-card" style="display: flex; justify-content: center; align-items: center;">
+                    <img id="commodity-view-logo" src="" alt="Commodity Icon" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+                </div>
+                
+                <!-- Siste Aksjekurs -->
+                <div class="kpi-card glass">
+                    <h3 id="commodity-price-label">Siste Pris</h3>
+                    <div class="kpi-value" id="commodity-latest-price">-</div>
+                    <div class="kpi-label" id="commodity-unit-label">USD</div>
+                </div>
+                
+                <!-- Endring 1D -->
+                <div class="kpi-card glass">
+                    <h3>Endring (1D)</h3>
+                    <div class="kpi-change" id="commodity-change-1d">-</div>
+                </div>
+                
+                <!-- Endring 1W -->
+                <div class="kpi-card glass">
+                    <h3>Endring (1W)</h3>
+                    <div class="kpi-change" id="commodity-change-1w">-</div>
+                </div>
+
+                <!-- Endring 1M -->
+                <div class="kpi-card glass">
+                    <h3>Endring (1M)</h3>
+                    <div class="kpi-change" id="commodity-change-1m">-</div>
+                </div>
+
+                <!-- Endring 1Y -->
+                <div class="kpi-card glass">
+                    <h3>Endring (1Y)</h3>
+                    <div class="kpi-change" id="commodity-change-1y">-</div>
+                </div>
+            </section>
+
+            <!-- Tidsfilter for råvaregraf -->
+            <section class="time-filters">
+                <button class="time-btn c-time-btn" data-period="1M">1M</button>
+                <button class="time-btn c-time-btn active" data-period="YTD">YTD</button>
+                <button class="time-btn c-time-btn" data-period="1Y">1Y</button>
+                <button class="time-btn c-time-btn" data-period="3Y">3Y</button>
+                <button class="time-btn c-time-btn" data-period="5Y">5Y</button>
+            </section>
+
+            <section class="charts-grid" style="grid-template-columns: 1fr;">
+                <div class="chart-card glass">
+                    <h2 id="commodity-chart-title">Råvare Historikk</h2>
+                    <div class="chart-unit" id="commodity-chart-unit">USD</div>
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="commodityChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section class="info-grid" style="grid-template-columns: 1fr; margin-top: 2rem;">
+                <div class="info-card glass">
+                    <h2 id="commodity-view-analysis-heading">Markedsanalyse</h2>
+                    <div id="commodity-view-analysis-content" class="markdown-content">
+                        Laster analyse...
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="company-info-view" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 id="company-info-title">Selskapsinformasjon</h2>
+                <button class="nav-btn" onclick="hideCompanyInfoView()">Tilbake til Dashboard</button>
+            </div>
+            
+            <div class="glass" style="padding: 1rem; overflow-x: auto;">
+                <table class="financial-table" id="financial-table">
+                    <!-- Populated by JS -->
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for å redigere finansiell data -->
+    <div id="edit-modal" class="modal" style="display: none;">
+        <div class="modal-content glass">
+            <h3>Oppdater verdi</h3>
+            <p id="edit-modal-context" style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;"></p>
+            
+            <div class="form-group">
+                <label>Dagens verdi:</label>
+                <div id="edit-modal-current-val" style="font-weight: bold; margin-bottom: 1rem;"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-modal-input">Ny verdi:</label>
+                <input type="number" id="edit-modal-input" step="any" class="form-control" />
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-modal-merknad">Merknad (vises i tabell):</label>
+                <textarea id="edit-modal-merknad" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-modal-kommentar">Kommentar for endring (obligatorisk, loggføres):</label>
+                <textarea id="edit-modal-kommentar" class="form-control" rows="2"></textarea>
+                <div id="edit-modal-error" style="color: #fca5a5; font-size: 0.85rem; margin-top: 0.5rem; display: none;">Du må fylle inn en begrunnelse for endringen!</div>
+            </div>
+            
+            <div class="modal-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="nav-btn" onclick="saveFinancialData()" style="background: var(--positive); border-color: var(--positive); color: white;">Lagre</button>
+                <button class="nav-btn" onclick="closeEditModal()">Forkast</button>
+            </div>
+            
+            <div style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">Endringshistorikk</h4>
+                <div id="edit-modal-history" style="max-height: 150px; overflow-y: auto; font-size: 0.85rem; color: var(--text);">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    </div> <!-- /app-container -->
+
+    <script src="app.js"></script>
+</body>
+</html>
